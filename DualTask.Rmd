@@ -1,5 +1,5 @@
 ---
-title: "DualTask"
+title: "Dual Task"
 author: "Eileen Petros"
 date: "7/12/2022"
 output: pdf_document
@@ -7,24 +7,127 @@ output: pdf_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
 ```
 
-## R Markdown
+# Constants
+```{r}
+# Enums
+WALK <- 1
+VSTROOP <- 2
+ASTROOP <- 3
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+# All in seconds
+TASK_DURATION <- 2
+VSTROOP_INTERVAL <- 1
+ASTROOP_INTERVAL <- 1
+WALK_TRIALS <- 1
+VSTROOP_TRAILS <- 1
+ASTROOP_TRIALS <- 1
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+VSTROOP_STIMULI_COUNT <- TASK_DURATION / VSTROOP_INTERVAL
+ASTROOP_STIMULI_COUNT <- TASK_DURATION / ASTROOP_INTERVAL
 
-```{r cars}
-summary(cars)
+EVENT_COUNT <- WALK_TRIALS + VSTROOP_STIMULI_COUNT + ASTROOP_STIMULI_COUNT
+# StartTrials, WalkTrial, VStroopTrial, AStroopTrial
+# TODO change counts to 1, 6, 12, 12
+# Depends on interstimulus duration 
+EVENT_A <- "# EVENT A - COUNT 1"
+EVENT_B <- "# EVENT B - COUNT 1"
+EVENT_C <- "# EVENT C - COUNT 2"
+EVENT_D <- "# EVENT D - COUNT 2"
+
+filePath <- "./Data/Test/Test0004.csv"
 ```
 
-## Including Plots
 
-You can also embed plots, for example:
+# Data Import and Cleaning
+```{r}
+data <- read.csv(filePath)
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+data <- as_tibble(data)
+
+# Remove separation lines
+data <- data %>% filter(Time != "#")
+
+# Extract summary rows and remove from data
+summary <- data %>% slice_tail(n = EVENT_COUNT)
+data <- data %>% slice(1:(n() - EVENT_COUNT))
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+# Detect Stomp
+
+```{r}
+# https://newbedev.com/r-tidyverse-how-to-change-column-data-type-using-pipes-with-least-typing
+stompTime <- data %>% filter(FP1.ForY == max(FP1.ForY, na.rm = TRUE))
+(stompTime$Time <- stompTime$Time %>% as.double())
+```
+
+# Subset by Stimulus using D-Flow Event Breaks
+```{r}
+# Find event detection rows
+eventBreaks <- data %>%  with(which(is.na(FP1.CopX)))
+eventBreaks <- eventBreaks %>% sort()
+
+# break into sets for each event 
+sets <- list()
+# Ignore first grouping from recording data to 
+for (i in 2:(EVENT_COUNT)) {
+  # Offset to exclude labels themselves
+  start <- (eventBreaks[i] + 1) 
+  end <- (eventBreaks[i + 1] - 1)
+  varName <- paste0("set", i - 1)
+  assign(varName, data[start:end,])
+  sets[[i - 1]] <- data[start:end,]
+}
+
+# Last set
+start <- eventBreaks[length(eventBreaks)] + 1
+assign(paste0("set", EVENT_COUNT), 
+       data[start :nrow(data),])
+sets[[EVENT_COUNT]] <- data[start:nrow(data),]
+
+```
+
+# Calculate Average Belt Speed for each Stimulus
+```{r}
+walkSpeeds <- c()
+vStroopSpeeds <- c()
+aStroopSpeeds <- c()
+
+for (i in 1:EVENT_COUNT){
+  currentSet <- as_tibble(sets[[i]])
+  task <- first(currentSet$Task)
+  
+  # With character entries in time removed, convert col to double
+  currentSet$Time <- currentSet$Time %>% as.double()
+  sets[[i]] <- currentSet
+  
+  # Compute average speeds
+  avgSpeed <- mean(currentSet$LeftBelt.Speed)
+  
+  if(task == WALK){
+    walkSpeeds <- c(walkSpeeds, avgSpeed)
+  }
+  else if (task == VSTROOP){
+    vStroopSpeeds <- c(vStroopSpeeds, avgSpeed)
+  }
+  else if (task == ASTROOP){
+    aStroopSpeeds <- c(aStroopSpeeds, avgSpeed)
+  }
+  else {
+    print("Invlaid task type")
+  }
+}
+
+walkSpeeds
+vStroopSpeeds
+aStroopSpeeds
+```
+## Single Speed Value for Each Task Type
+```{r}
+(mean(walkSpeeds))
+(mean(vStroopSpeeds))
+(mean(aStroopSpeeds))
+```
