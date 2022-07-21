@@ -9,7 +9,6 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 
 library(tidyverse)
-library(cowplot)
 ```
 
 # Constants
@@ -27,32 +26,32 @@ ASTROOP <- 3
 # VSTROOP_TRAILS <- 1
 # ASTROOP_TRIALS <- 1
 
-TASK_DURATION <- 9
-VSTROOP_INTERVAL <- 1.5
-ASTROOP_INTERVAL <- 1.5
-WALK_TRIALS <- 1
+TASK_DURATION <- 14
+VSTROOP_INTERVAL <- 2
+ASTROOP_INTERVAL <- 0
+WALK_TRIALS <- 0
 VSTROOP_TRAILS <- 1
-ASTROOP_TRIALS <- 1
+ASTROOP_TRIALS <- 0
 
 VSTROOP_STIMULI_COUNT <- TASK_DURATION / VSTROOP_INTERVAL
 ASTROOP_STIMULI_COUNT <- TASK_DURATION / ASTROOP_INTERVAL
 
-EVENT_COUNT <- WALK_TRIALS + VSTROOP_STIMULI_COUNT + ASTROOP_STIMULI_COUNT
+EVENT_COUNT <- VSTROOP_STIMULI_COUNT # not counting data collection start 
 # StartTrials, WalkTrial, VStroopTrial, AStroopTrial
 # TODO change counts to 1, 6, 12, 12
 # Depends on interstimulus duration 
-EVENT_A <- "# EVENT A - COUNT 1" #start treadmill
-EVENT_B <- "# EVENT B - COUNT 1" #walk
-EVENT_C <- "# EVENT C - COUNT 2" #vstroop
-EVENT_D <- "# EVENT D - COUNT 2" #astroop
+EVENT_A <- "# EVENT A - COUNT 1"
+EVENT_B <- "# EVENT B - COUNT 1"
+EVENT_C <- "# EVENT C - COUNT 2"
+EVENT_D <- "# EVENT D - COUNT 2"
 
-filePath <- "./Data/SL_dual0006.csv"
+filePath <- "./Data/SL_single0004.csv"
 ```
 
 
 # Data Import and Cleaning
 ```{r}
-data <- read.csv(filePath)
+data <- read.csv2(filePath, sep = ",", fileEncoding = "UTF-8-BOM")
 
 data <- as_tibble(data)
 
@@ -62,30 +61,20 @@ data <- data %>% filter(Time != "#")
 # Extract summary rows and remove from data
 summary <- data %>% slice_tail(n = EVENT_COUNT)
 data <- data %>% slice(1:(n() - EVENT_COUNT))
-
-
 ```
 
 # Detect Stomp
 
 ```{r}
 # https://newbedev.com/r-tidyverse-how-to-change-column-data-type-using-pipes-with-least-typing
-data$FP1.ForY <- data$FP1.ForY %>% as.double()
-data$FP2.ForY <- data$FP2.ForY %>% as.double()
-
 stompTime <- data %>% filter(FP1.ForY == max(FP1.ForY, na.rm = TRUE))
 (stompTime$Time <- stompTime$Time %>% as.double())
-(stompTime$FP1.ForY)
-
-stompTime2 <- data %>% filter(FP2.ForY == max(FP2.ForY, na.rm = TRUE))
-(stompTime2$Time <- stompTime2$Time %>% as.double())
-(stompTime$FP2.ForY)
 ```
 
 # Subset by Stimulus using D-Flow Event Breaks
 ```{r}
 # Find event detection rows
-eventBreaks <- data %>%  with(which(is.na(FP1.CopX)))
+eventBreaks <- data %>%  with(which(is.na(FP1.CopY)))
 eventBreaks <- eventBreaks %>% sort()
 
 # break into sets for each event 
@@ -96,22 +85,16 @@ for (i in 2:(EVENT_COUNT)) {
   start <- (eventBreaks[i] + 1) 
   end <- (eventBreaks[i + 1] - 1)
   varName <- paste0("set", i - 1)
-  
-  # Don't create indiidual set vars
-  #assign(varName, data[start:end,])
+  assign(varName, data[start:end,])
   sets[[i - 1]] <- data[start:end,]
 }
 
 # Last set
 start <- eventBreaks[length(eventBreaks)] + 1
-#assign(paste0("set", EVENT_COUNT), data[start :nrow(data),])
+assign(paste0("set", EVENT_COUNT), 
+       data[start :nrow(data),])
 sets[[EVENT_COUNT]] <- data[start:nrow(data),]
 
-```
-
-## Final Data Cleaning with All Text Removed
-```{r}
-data$Time <- as.double(data$Time)
 ```
 
 # Calculate Average Belt Speed for each Stimulus and Pull Sitmulus Info
@@ -131,7 +114,7 @@ for (i in 1:EVENT_COUNT){
   task <- first(currentSet$Task)
   
   # With character entries in time removed, convert col to double
-  currentSet$Time <- as.double(currentSet$Time)
+  currentSet$Time <- currentSet$Time %>% as.double()
   sets[[i]] <- currentSet
   
   # Compute average speeds
@@ -167,65 +150,4 @@ aStroopSpeeds
 (mean(walkSpeeds))
 (mean(vStroopSpeeds))
 (mean(aStroopSpeeds))
-```
-# Cognitive Performance
-```{r}
-print("VStroop Correct Answer: 1 = Red, 2 = Green, 3= Blue, 4 = Yellow, 5 = Purple, 
-      6 = Orange, 7 = Gray, 8 = White, 9 = Black")
-(vStroopCharacteristic)
-
-print("AStroop Correct Answer: -0.3 = LOW, 0.3 = HIGH")
-(aStroopCharacteristic)
-
-print("Results")
-vStroopResults <- c(1,1,1,1,1,1)
-aStroopResults <- c(1,0,1,1,1,0)
-
-(vStroopResults)
-(vStroopPercent <- sum(vStroopResults) / length(vStroopResults))
-
-(aStroopResults)
-(aStroopPercent <- sum(aStroopResults) / length(aStroopResults))
-
-```
-# Visualizing Forces
-
-```{r}
-# dataToPlot <- sets[[6]]
-# ggplot(data = dataToPlot, mapping = aes(x = Time, y = FP1.ForY)) + 
-#   geom_line() +
-#   geom_point() +
-#   xlab("Time") + 
-#   ylab("Force (N)") 
-
-forcePlate1Plot <- ggplot(data = data, mapping = 
-                            aes(x = Time, y = FP1.ForY)) +
-  geom_line(color = "Red") + 
-  geom_point(size = 0.25, color = "Red") +
-  labs(title = "Force Plate 1", x = "Time", y = "Force") + 
-  theme(legend.position = "none")
-
-forcePlate2Plot <- ggplot(data = data, mapping = 
-                            aes(x = Time, y = FP2.ForY)) +
-  geom_line(color = "blue") + 
-  geom_point(size = 0.25, color = "blue") +
-  labs(title = "Force Plate 2", x = "Time", y = "Force") + 
-  theme(legend.position =  "none")
-
-
-plot_grid(forcePlate1Plot, forcePlate2Plot, ncol = 1, vjust = 0.5)
-
-
-ggplot(data = data, mapping = aes(x = Time, y = FP1.ForY)) +
-  geom_line(color = "Red") + 
-  geom_point(size = 0.25, color = "Red") +
-  geom_line(mapping = aes(y = FP2.ForY), color = "blue") + 
-  geom_point(size = 0.25, color = "blue") +
-  labs(title = "Force Plate 1", x = "Time", y = "Force") + 
-  theme(legend.position = "none")
-# Flip axis labesl
-# theme(axis.text.x = element_text(angle = 90, vjust = 1, hjust = 1))
- 
-# ggplot(mm, aes(x = times, y = value)) + geom_line(aes(color = variable)) + 
-#       facet_grid(variable ~ ., scales = "free_y") + theme(legend.position = "none")
 ```

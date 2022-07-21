@@ -1,0 +1,32 @@
+---
+title: "StairData"
+author: "Eileen Petros"
+date: "7/14/2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+```
+
+
+# Data
+```{r}
+filePath <- "./Data/ITEM_01.csv"
+
+data <- read.csv(filePath)
+
+#data$Y.9 <- data$Y.9 %>% as.double()
+
+
+# Y val of Toe Marker
+
+data2 <- data %>% filter( Y.9 > 1180) %>% filter(Y.9 < 1200) 
+
+(data2$Z.9)
+```
+
+
+
