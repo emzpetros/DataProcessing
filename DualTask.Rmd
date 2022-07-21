@@ -66,6 +66,24 @@ data <- data %>% slice(1:(n() - EVENT_COUNT))
 
 ```
 
+# Calculate Force Magnitude
+```{r}
+data <- data %>% mutate(FP1.Magnitude = 
+                              sqrt(FP1.ForX^2 + FP1.ForY^2 + FP1.ForZ^2))
+data <- data %>% mutate(FP2.Magnitude = 
+                              sqrt(FP2.ForX^2 + FP2.ForY^2 + FP2.ForZ^2))
+
+ggplot(data = data, mapping = 
+                            aes(x = Time, y = FP1.Magnitude)) +
+  geom_line(size = 0.1, color = "blue") + 
+  geom_point(size = 0.1, color = "blue") +
+  labs(title = "Force Plate 1 Magnitude", x = "Time", y = "Force") + 
+  theme(legend.position =  "none")
+
+
+
+```
+
 # Detect Stomp
 
 ```{r}
@@ -200,32 +218,53 @@ aStroopResults <- c(1,0,1,1,1,0)
 
 forcePlate1Plot <- ggplot(data = data, mapping = 
                             aes(x = Time, y = FP1.ForY)) +
-  geom_line(color = "Red") + 
-  geom_point(size = 0.25, color = "Red") +
-  labs(title = "Force Plate 1", x = "Time", y = "Force") + 
+  geom_line(size = 0.1, color = "Red") + 
+  geom_point(size = 0.1, color = "Red") +
+  labs(title = "Force Plate 1 (Y)", x = "Time", y = "Force") + 
   theme(legend.position = "none")
 
 forcePlate2Plot <- ggplot(data = data, mapping = 
                             aes(x = Time, y = FP2.ForY)) +
-  geom_line(color = "blue") + 
-  geom_point(size = 0.25, color = "blue") +
-  labs(title = "Force Plate 2", x = "Time", y = "Force") + 
+  geom_line(size = 0.1, color = "blue") + 
+  geom_point(size = 0.1, color = "blue") +
+  labs(title = "Force Plate 2 (Y)", x = "Time", y = "Force") + 
   theme(legend.position =  "none")
 
 
 plot_grid(forcePlate1Plot, forcePlate2Plot, ncol = 1, vjust = 0.5)
-
+ggsave(file="./Figures/pilot_force_data.png", width=8, height=4, dpi=300)
 
 ggplot(data = data, mapping = aes(x = Time, y = FP1.ForY)) +
-  geom_line(color = "Red") + 
-  geom_point(size = 0.25, color = "Red") +
-  geom_line(mapping = aes(y = FP2.ForY), color = "blue") + 
-  geom_point(size = 0.25, color = "blue") +
-  labs(title = "Force Plate 1", x = "Time", y = "Force") + 
+  geom_line(size = 0.1, color = "Red") + 
+  geom_line(mapping = aes(y = FP2.ForY), size = 0.1, color = "blue") + 
+  labs(title = "Force Plates (Y)", x = "Time", y = "Force") + 
   theme(legend.position = "none")
+
+
+ggsave(file="./Figures/pilot_force_data_overlay.png", width=8, height=4, dpi=300)
+
+# https://stackoverflow.com/questions/29587881/increase-plot-size-width-in-ggplot2
+# 
 # Flip axis labesl
 # theme(axis.text.x = element_text(angle = 90, vjust = 1, hjust = 1))
  
 # ggplot(mm, aes(x = times, y = value)) + geom_line(aes(color = variable)) + 
 #       facet_grid(variable ~ ., scales = "free_y") + theme(legend.position = "none")
+```
+
+
+## Isolate Gait Events
+
+### Heel Strike
+First nonzero point
+```{r}
+ggplot(data = set1, mapping = aes(x = Time, y = FP1.ForY)) +
+  geom_line() + 
+  geom_point(size = 0.1) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 1, hjust = 1, size = 1))
+```
+### Toe Off
+First return to zero
+```{r}
+
 ```
